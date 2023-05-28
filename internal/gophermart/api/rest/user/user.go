@@ -29,6 +29,6 @@ func (u User) Route() http.Handler {
 	router := chi.NewRouter()
 	router.Mount("/register", u.register.Route())
 	router.Mount("/login", u.login.Route())
-	router.Mount("/ordres", u.orders.Route())
+	router.Mount("/orders", u.orders.Route())
 	return router
 }
