@@ -9,13 +9,13 @@ import (
 )
 
 type Withdraw struct {
-	idp idp.IdentityProvider
+	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Withdraw.
-func New(idp idp.IdentityProvider) Withdraw {
+func New(identityProvider idp.IdentityProvider) Withdraw {
 	return Withdraw{
-		idp: idp,
+		IdentityProvider: identityProvider,
 	}
 }
 
@@ -27,7 +27,7 @@ func (w Withdraw) Route() http.Handler {
 
 func (w Withdraw) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	token := in.Header.Get("Authorization")
-	user, userError := w.idp.User(in.Context(), idp.Token(token))
+	user, userError := w.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(userError, idp.ErrBadCredentials) {

@@ -12,15 +12,15 @@ import (
 type Balance struct {
 	withdraw withdraw.Withdraw
 
-	idp idp.IdentityProvider
+	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Balance.
-func New(idp idp.IdentityProvider) Balance {
+func New(identityProvider idp.IdentityProvider) Balance {
 	return Balance{
-		withdraw: withdraw.New(idp),
+		withdraw: withdraw.New(identityProvider),
 
-		idp: idp,
+		IdentityProvider: identityProvider,
 	}
 }
 
@@ -32,7 +32,7 @@ func (b Balance) Route() http.Handler {
 
 func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	token := in.Header.Get("Authorization")
-	user, userError := b.idp.User(in.Context(), idp.Token(token))
+	user, userError := b.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(userError, idp.ErrBadCredentials) {

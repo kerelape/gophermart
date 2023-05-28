@@ -11,13 +11,13 @@ import (
 )
 
 type Orders struct {
-	idp idp.IdentityProvider
+	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Orders.
-func New(idp idp.IdentityProvider) Orders {
+func New(identityProvider idp.IdentityProvider) Orders {
 	return Orders{
-		idp: idp,
+		IdentityProvider: identityProvider,
 	}
 }
 
@@ -30,7 +30,7 @@ func (o Orders) Route() http.Handler {
 
 func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 	token := in.Header.Get("Authorization")
-	user, userError := o.idp.User(in.Context(), idp.Token(token))
+	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(userError, idp.ErrBadCredentials) {
@@ -68,7 +68,7 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 
 func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 	token := in.Header.Get("Authorization")
-	user, userError := o.idp.User(in.Context(), idp.Token(token))
+	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(userError, idp.ErrBadCredentials) {

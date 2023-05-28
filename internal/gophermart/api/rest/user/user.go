@@ -19,12 +19,12 @@ type User struct {
 }
 
 // New creates a new User.
-func New(idp idp.IdentityProvider) User {
+func New(identityProvider idp.IdentityProvider) User {
 	return User{
-		register: register.New(idp),
-		login:    login.New(idp),
-		orders:   orders.New(idp),
-		balance:  balance.New(idp),
+		register: register.New(identityProvider),
+		login:    login.New(identityProvider),
+		orders:   orders.New(identityProvider),
+		balance:  balance.New(identityProvider),
 	}
 }
 

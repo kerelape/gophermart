@@ -10,13 +10,13 @@ import (
 )
 
 type Register struct {
-	idp idp.IdentityProvider
+	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Register.
-func New(idp idp.IdentityProvider) Register {
+func New(identityProvider idp.IdentityProvider) Register {
 	return Register{
-		idp: idp,
+		IdentityProvider: identityProvider,
 	}
 }
 
@@ -39,7 +39,7 @@ func (r Register) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	}
 
 	// Register the user.
-	registerError := r.idp.Register(in.Context(), request.Login, request.Password)
+	registerError := r.IdentityProvider.Register(in.Context(), request.Login, request.Password)
 	if registerError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(registerError, idp.ErrDuplicateUsername) {
@@ -50,7 +50,7 @@ func (r Register) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	}
 
 	// Authenticate the user.
-	token, authenticateError := r.idp.Authenticate(in.Context(), request.Login, request.Password)
+	token, authenticateError := r.IdentityProvider.Authenticate(in.Context(), request.Login, request.Password)
 	if authenticateError != nil {
 		status := http.StatusInternalServerError
 		http.Error(out, http.StatusText(status), status)

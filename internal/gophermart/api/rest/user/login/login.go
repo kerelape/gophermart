@@ -10,13 +10,13 @@ import (
 )
 
 type Login struct {
-	idp idp.IdentityProvider
+	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Login.
-func New(idp idp.IdentityProvider) Login {
+func New(identityProvider idp.IdentityProvider) Login {
 	return Login{
-		idp: idp,
+		IdentityProvider: identityProvider,
 	}
 }
 
@@ -38,7 +38,7 @@ func (l Login) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 		return
 	}
 
-	token, authenticateError := l.idp.Authenticate(in.Context(), request.Login, request.Password)
+	token, authenticateError := l.IdentityProvider.Authenticate(in.Context(), request.Login, request.Password)
 	if authenticateError != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(authenticateError, idp.ErrBadCredentials) {
