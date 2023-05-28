@@ -56,6 +56,6 @@ func (r Register) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 		http.Error(out, http.StatusText(status), status)
 		return
 	}
-	out.Header().Add("Authorization", "Bearer "+string(token))
+	out.Header().Add("Authorization", string(token))
 	out.WriteHeader(http.StatusOK)
 }

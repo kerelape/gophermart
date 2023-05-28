@@ -47,6 +47,6 @@ func (l Login) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 		http.Error(out, http.StatusText(status), status)
 		return
 	}
-	out.Header().Set("Authorization", "Bearer "+string(token))
+	out.Header().Set("Authorization", string(token))
 	out.WriteHeader(http.StatusOK)
 }
