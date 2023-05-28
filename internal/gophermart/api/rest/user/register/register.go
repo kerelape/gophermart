@@ -13,6 +13,7 @@ type Register struct {
 	idp idp.IdentityProvider
 }
 
+// New creates a new Register.
 func New(idp idp.IdentityProvider) Register {
 	return Register{
 		idp: idp,

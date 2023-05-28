@@ -16,6 +16,7 @@ type API struct {
 	ServerAddress string
 }
 
+// New creates a new API.
 func New(idp idp.IdentityProvider, address string) API {
 	return API{
 		rest: rest.New(idp),

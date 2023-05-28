@@ -14,6 +14,7 @@ type User struct {
 	login    login.Login
 }
 
+// New creates a new User.
 func New(idp idp.IdentityProvider) User {
 	return User{
 		register: register.New(idp),

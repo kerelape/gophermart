@@ -13,6 +13,7 @@ type Login struct {
 	idp idp.IdentityProvider
 }
 
+// New creates a new Login.
 func New(idp idp.IdentityProvider) Login {
 	return Login{
 		idp: idp,
