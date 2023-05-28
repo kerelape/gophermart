@@ -23,6 +23,9 @@ type User interface {
 	AddOrder(ctx context.Context, id string) error
 
 	Orders(ctx context.Context) ([]Order, error)
+
+	// Balance returns current balance status.
+	Balance(ctx context.Context) (Balance, error)
 }
 
 type Order struct {
