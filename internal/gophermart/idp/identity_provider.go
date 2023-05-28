@@ -23,4 +23,7 @@ type IdentityProvider interface {
 
 	// Authenticate authenticates the user.
 	Authenticate(ctx context.Context, username, password string) (Token, error)
+
+	// User returns the User associated with the token.
+	User(ctx context.Context, token Token) (User, error)
 }
