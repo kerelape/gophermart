@@ -5,6 +5,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user"
+	"github.com/kerelape/gophermart/internal/gophermart/idp"
 )
 
 type REST struct {
@@ -12,9 +13,9 @@ type REST struct {
 }
 
 // New creates a new REST.
-func New() REST {
+func New(idp idp.IdentityProvider) REST {
 	return REST{
-		user: user.New(),
+		user: user.New(idp),
 	}
 }
 

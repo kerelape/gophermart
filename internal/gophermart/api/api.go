@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest"
+	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"github.com/pior/runnable"
 )
 
@@ -15,9 +16,9 @@ type API struct {
 	ServerAddress string
 }
 
-func New(address string) API {
+func New(idp idp.IdentityProvider, address string) API {
 	return API{
-		rest: rest.New(),
+		rest: rest.New(idp),
 
 		ServerAddress: address,
 	}

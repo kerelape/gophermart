@@ -13,7 +13,10 @@ type Gophermart struct {
 
 func New(config Config) Gophermart {
 	return Gophermart{
-		api.New(config.ServerAddress),
+		api.New(
+			nil, // FIXME: IdentityProvider
+			config.ServerAddress,
+		),
 	}
 }
 
