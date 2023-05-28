@@ -7,14 +7,16 @@ import (
 )
 
 var (
-	// ErrOrderInvalidFormat is returned when an order ID is in wrong format.
-	ErrOrderInvalidFormat = errors.New("invalid order format")
+	// ErrOrderInvalid is returned when an order ID is in wrong format.
+	ErrOrderInvalid = errors.New("invalid order format")
 
 	// ErrOrderDuplicate is returned when the order has already been added to this user.
 	ErrOrderDuplicate = errors.New("duplicate order")
 
 	// ErrOrderUnowned is returned when the user attempted to add an order that another user already has.
 	ErrOrderUnowned = errors.New("unowned order")
+
+	ErrBalanceTooLow = errors.New("balance too low")
 )
 
 // User represents a Gophermart client.
@@ -26,6 +28,9 @@ type User interface {
 
 	// Balance returns current balance status.
 	Balance(ctx context.Context) (Balance, error)
+
+	// Withdraw withdraws amount towards order.
+	Withdraw(ctx context.Context, order string, amount float64) error
 }
 
 type Order struct {

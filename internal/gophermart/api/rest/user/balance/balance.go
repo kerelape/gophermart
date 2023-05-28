@@ -4,17 +4,22 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/balance/withdraw"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
 )
 
 type Balance struct {
+	withdraw withdraw.Withdraw
+
 	idp idp.IdentityProvider
 }
 
 // New creates a new Balance.
 func New(idp idp.IdentityProvider) Balance {
 	return Balance{
+		withdraw: withdraw.New(idp),
+
 		idp: idp,
 	}
 }

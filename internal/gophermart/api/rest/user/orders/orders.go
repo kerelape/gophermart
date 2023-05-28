@@ -54,7 +54,7 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 			return
 		}
 		status := http.StatusInternalServerError
-		if errors.Is(addOrderError, idp.ErrOrderInvalidFormat) {
+		if errors.Is(addOrderError, idp.ErrOrderInvalid) {
 			status = http.StatusUnprocessableEntity
 		}
 		if errors.Is(addOrderError, idp.ErrOrderUnowned) {
