@@ -11,6 +11,7 @@ type Gophermart struct {
 	api api.API
 }
 
+// New creates a new Gophermart.
 func New(config Config) Gophermart {
 	return Gophermart{
 		api.New(
