@@ -12,7 +12,7 @@ var (
 	// their username being a duplicate.
 	ErrDuplicateUsername = errors.New("duplicate username")
 
-	// ErrBadCredentials is returned when provided credetials are wrong (username/password or token).
+	// ErrBadCredentials is returned when provided credentials are wrong (username/password or token).
 	ErrBadCredentials = errors.New("bad credentials")
 )
 
