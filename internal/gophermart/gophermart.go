@@ -2,7 +2,6 @@ package gophermart
 
 import (
 	"context"
-
 	"github.com/kerelape/gophermart/internal/gophermart/api"
 	"github.com/pior/runnable"
 )
@@ -14,9 +13,9 @@ type Gophermart struct {
 // New creates a new Gophermart.
 func New(config Config) Gophermart {
 	return Gophermart{
-		api.New(
+		api: api.New(
 			nil, // FIXME: IdentityProvider
-			config.ServerAddress,
+			config.AddressAPIServer,
 		),
 	}
 }
