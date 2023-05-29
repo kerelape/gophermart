@@ -3,6 +3,7 @@ package user
 import (
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/balance"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/orders"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/withdrawals"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,19 +13,21 @@ import (
 )
 
 type User struct {
-	register register.Register
-	login    login.Login
-	orders   orders.Orders
-	balance  balance.Balance
+	register    register.Register
+	login       login.Login
+	orders      orders.Orders
+	balance     balance.Balance
+	withdrawals withdrawals.Withdrawals
 }
 
 // New creates a new User.
 func New(identityProvider idp.IdentityProvider) User {
 	return User{
-		register: register.New(identityProvider),
-		login:    login.New(identityProvider),
-		orders:   orders.New(identityProvider),
-		balance:  balance.New(identityProvider),
+		register:    register.New(identityProvider),
+		login:       login.New(identityProvider),
+		orders:      orders.New(identityProvider),
+		balance:     balance.New(identityProvider),
+		withdrawals: withdrawals.New(identityProvider),
 	}
 }
 
@@ -34,5 +37,6 @@ func (u User) Route() http.Handler {
 	router.Mount("/login", u.login.Route())
 	router.Mount("/orders", u.orders.Route())
 	router.Mount("/balance", u.balance.Route())
+	router.Mount("/withdrawals", u.withdrawals.Route())
 	return router
 }

@@ -31,6 +31,15 @@ type User interface {
 
 	// Withdraw withdraws amount towards order.
 	Withdraw(ctx context.Context, order string, amount float64) error
+
+	// Withdrawals returns withdrawals history.
+	Withdrawals(ctx context.Context) ([]Withdrawal, error)
+}
+
+type Withdrawal struct {
+	ID   string
+	Sum  float64
+	Time time.Time
 }
 
 type Order struct {
