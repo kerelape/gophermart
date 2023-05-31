@@ -47,6 +47,9 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 	if err := rows.Close(); err != nil {
 		return err
 	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
 
 	transaction, transactionError := p.db.Begin()
 	if transactionError != nil {
