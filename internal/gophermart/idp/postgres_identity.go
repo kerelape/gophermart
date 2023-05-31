@@ -26,6 +26,10 @@ func NewPostgresIdentity(username string, conn *pgx.Conn, accrual accrual.Accrua
 }
 
 func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
+	if !validateOrderID(id) {
+		return ErrOrderInvalid
+	}
+
 	duplicateRow := p.conn.QueryRow(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
 	var owner string
 	scanDuplicateError := duplicateRow.Scan(&owner)
@@ -190,4 +194,21 @@ func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) 
 	}
 
 	return bcrypt.CompareHashAndPassword(passwordHash, []byte(password)) == nil, nil
+}
+
+func validateOrderID(id string) bool {
+	sum := 0
+	length := len(id)
+	parity := length % 2
+	for i := len(id) - 1; i >= 0; i-- {
+		digit := int(id[i])
+		if i%2 == parity {
+			digit *= 2
+			if digit > 9 {
+				digit -= 9
+			}
+		}
+		sum += digit
+	}
+	return sum%10 == 0
 }
