@@ -222,19 +222,21 @@ func (p PostgresIdentity) updateOrders(ctx context.Context) error {
 	wg, wgContext := errgroup.WithContext(ctx)
 	wg.SetLimit(len(ordersToUpdate))
 	for _, orderID := range ordersToUpdate {
-		wg.Go(func() error {
-			orderInfo, err := p.accrual.OrderInfo(wgContext, orderID)
-			if err != nil {
-				return err
+		wg.Go(func(id string) func() error {
+			return func() error {
+				orderInfo, err := p.accrual.OrderInfo(wgContext, id)
+				if err != nil {
+					return err
+				}
+				_, execError := p.db.ExecContext(
+					wgContext,
+					`UPDATE orders SET status = $1 WHERE id = $2`,
+					string(orderInfo.Status),
+					id,
+				)
+				return execError
 			}
-			_, execError := p.db.ExecContext(
-				wgContext,
-				`UPDATE orders SET status = $1 WHERE id = $2`,
-				string(orderInfo.Status),
-				orderID,
-			)
-			return execError
-		})
+		}(orderID))
 	}
 	return wg.Wait()
 }
