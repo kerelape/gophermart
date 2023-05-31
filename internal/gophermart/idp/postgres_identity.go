@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -68,10 +67,6 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
-	if err := p.updateOrders(ctx); err != nil {
-		return nil, err
-	}
-
 	result, queryError := p.conn.Query(ctx, `SELECT id, status, time, accrual FROM orders WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
@@ -185,50 +180,4 @@ func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) 
 	}
 
 	return bcrypt.CompareHashAndPassword(passwordHash, []byte(password)) == nil, nil
-}
-
-func (p PostgresIdentity) updateOrders(ctx context.Context) error {
-	rows, queryError := p.conn.Query(
-		ctx,
-		`SELECT id FROM orders WHERE owner = $1 AND status IN ($2, $3)`,
-		p.username,
-		OrderStatusNew,
-		OrderStatusProcessing,
-	)
-	if queryError != nil {
-		return queryError
-	}
-	ordersToUpdate := make([]string, 0)
-	for rows.Next() {
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		var orderID string
-		if err := rows.Scan(&orderID); err != nil {
-			return err
-		}
-		ordersToUpdate = append(ordersToUpdate, orderID)
-	}
-	rows.Close()
-
-	wg, wgContext := errgroup.WithContext(ctx)
-	wg.SetLimit(len(ordersToUpdate))
-	for _, orderID := range ordersToUpdate {
-		wg.Go(func(id string) func() error {
-			return func() error {
-				orderInfo, err := p.accrual.OrderInfo(wgContext, id)
-				if err != nil {
-					return err
-				}
-				_, execError := p.conn.Exec(
-					wgContext,
-					`UPDATE orders SET status = $1 WHERE id = $2`,
-					string(orderInfo.Status),
-					id,
-				)
-				return execError
-			}
-		}(orderID))
-	}
-	return wg.Wait()
 }

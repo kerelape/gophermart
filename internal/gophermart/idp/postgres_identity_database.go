@@ -5,7 +5,10 @@ import (
 	"encoding/base64"
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
+	"github.com/pior/runnable"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/errgroup"
+	"time"
 )
 
 type PostgresIdentityDatabase struct {
@@ -67,6 +70,13 @@ func (p *PostgresIdentityDatabase) Identity(username string) Identity {
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
+	manager := runnable.NewManager()
+	manager.Add(runnable.Func(p.connection))
+	manager.Add(runnable.Func(p.update))
+	return manager.Build().Run(ctx)
+}
+
+func (p *PostgresIdentityDatabase) connection(ctx context.Context) error {
 	conn, connectError := pgx.Connect(ctx, p.dsn)
 	if connectError != nil {
 		return connectError
@@ -122,4 +132,62 @@ func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	p.conn = conn
 	<-ctx.Done()
 	return p.conn.Close(context.Background())
+}
+
+func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
+	for {
+		rows, queryError := p.conn.Query(
+			ctx,
+			`SELECT id FROM orders WHERE status IN ($1, $2)`,
+			string(OrderStatusNew),
+			string(OrderStatusProcessing),
+		)
+		if queryError != nil {
+			return queryError
+		}
+
+		ordersToUpdate := make([]string, 0)
+		for rows.Next() {
+			if err := rows.Err(); err != nil {
+				return err
+			}
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ordersToUpdate = append(ordersToUpdate, id)
+		}
+		rows.Close()
+
+		eg, egCtx := errgroup.WithContext(ctx)
+		eg.SetLimit(len(ordersToUpdate))
+		for _, id := range ordersToUpdate {
+			eg.Go(func(ctx context.Context, id string) func() error {
+				return func() error {
+					orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
+					if orderInfoError != nil {
+						return orderInfoError
+					}
+					_, execError := p.conn.Exec(
+						ctx,
+						`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
+						string(orderInfo.Status),
+						orderInfo.Accrual,
+						id,
+					)
+					return execError
+				}
+			}(egCtx, id))
+		}
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		time.Sleep(time.Second)
+	}
 }

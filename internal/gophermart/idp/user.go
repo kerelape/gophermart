@@ -51,9 +51,23 @@ type Order struct {
 
 type OrderStatus string
 
+func (o OrderStatus) IsFinal() bool {
+	switch o {
+	case OrderStatusNew:
+		return false
+	case OrderStatusProcessing:
+		return false
+	case OrderStatusInvalid:
+		return true
+	case OrderStatusProcessed:
+		return true
+	}
+	panic("unsupported order status")
+}
+
 var (
 	OrderStatusNew        = OrderStatus("NEW")
-	OrderStatusProcessing = OrderStatus("PROCESSING")
 	OrderStatusInvalid    = OrderStatus("INVALID")
+	OrderStatusProcessing = OrderStatus("PROCESSING")
 	OrderStatusProcessed  = OrderStatus("PROCESSED")
 )
