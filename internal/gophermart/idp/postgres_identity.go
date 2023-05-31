@@ -170,6 +170,7 @@ func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error)
 			return nil, err
 		}
 		withdrawal.Time = time.UnixMilli(withdrawalTime)
+		withdrawals = append(withdrawals, withdrawal)
 	}
 
 	return withdrawals, nil
