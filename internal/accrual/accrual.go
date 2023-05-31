@@ -28,7 +28,7 @@ func New(address string, client *http.Client) Accrual {
 }
 
 func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error) {
-	out, outError := http.NewRequestWithContext(ctx, http.MethodGet, "/api/order/"+order, strings.NewReader(""))
+	out, outError := http.NewRequestWithContext(ctx, http.MethodGet, a.Address+"/api/order/"+order, strings.NewReader(""))
 	if outError != nil {
 		return OrderInfo{}, outError
 	}
