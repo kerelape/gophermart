@@ -8,7 +8,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
-	"log"
 	"time"
 )
 
@@ -95,21 +94,21 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 			continue
 		}
 		orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, order.ID)
-		log.Printf("Order(%s): %v | %v", order.ID, orderInfo, orderInfoError)
+		status := order.Status
 		if orderInfoError != nil {
 			if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
-				orders[i].Status = OrderStatusInvalid
+				status = OrderStatusInvalid
 			} else {
 				return nil, orderInfoError
 			}
 		} else {
-			orders[i].Status = MakeOrderStatus(orderInfo.Status)
+			status = MakeOrderStatus(orderInfo.Status)
 		}
 		orders[i].Accrual = orderInfo.Accrual
 		_, err := p.conn.Exec(
 			ctx,
 			`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-			string(orders[i].Status),
+			string(status),
 			orderInfo.Accrual,
 			orderInfo.Order,
 		)
