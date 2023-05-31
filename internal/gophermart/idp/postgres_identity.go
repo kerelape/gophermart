@@ -77,8 +77,24 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
-	//TODO implement me
-	panic("implement me")
+	result, queryError := p.db.QueryContext(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
+	if queryError != nil {
+		return nil, queryError
+	}
+	defer result.Close()
+
+	orders := make([]Order, 0)
+	for result.Next() {
+		order := Order{}
+		var status string
+		if err := result.Scan(&order.ID, &status, &order.Time, &order.Accrual); err != nil {
+			return nil, err
+		}
+		order.Status = OrderStatus(status)
+		orders = append(orders, order)
+	}
+
+	return orders, nil
 }
 
 func (p PostgresIdentity) Balance(ctx context.Context) (Balance, error) {
