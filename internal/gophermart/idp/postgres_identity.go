@@ -57,13 +57,13 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 	if queryError != nil {
 		return nil, queryError
 	}
-	defer result.Close()
-	if result.Err() != nil {
-		return nil, result.Err()
-	}
 
 	orders := make([]Order, 0)
 	for result.Next() {
+		if err := result.Err(); err != nil {
+			return nil, err
+		}
+
 		order := Order{}
 		var status string
 		var orderTime int64
@@ -79,11 +79,17 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		if order.Status.IsFinal() {
 			continue
 		}
+		status := order.Status
 		orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, order.ID)
 		if orderInfoError != nil {
-			return nil, orderInfoError
+			if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
+				status = OrderStatusInvalid
+			} else {
+				return nil, orderInfoError
+			}
+		} else {
+			status = MakeOrderStatus(orderInfo.Status)
 		}
-		status := MakeOrderStatus(orderInfo.Status)
 		if status != order.Status {
 			orders[i].Status = status
 			orders[i].Accrual = orderInfo.Accrual
