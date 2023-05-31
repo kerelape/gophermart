@@ -72,7 +72,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		return nil, err
 	}
 
-	result, queryError := p.conn.Query(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT id, status, time, accrual FROM orders WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}
@@ -190,7 +190,8 @@ func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) 
 func (p PostgresIdentity) updateOrders(ctx context.Context) error {
 	rows, queryError := p.conn.Query(
 		ctx,
-		`SELECT id FROM orders WHERE owner = $1 AND status IN ($1, $2)`,
+		`SELECT id FROM orders WHERE owner = $1 AND status IN ($2, $3)`,
+		p.username,
 		OrderStatusNew,
 		OrderStatusProcessing,
 	)
