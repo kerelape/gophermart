@@ -180,13 +180,13 @@ func (p *PostgresIdentityDatabase) updateOrders(ctx context.Context) error {
 					return orderInfoError
 				}
 				if !OrderStatus(orderInfo.Status).IsFinal() {
-					log.Printf("Order %s is thill not finished(%s)", id, orderInfo.Status)
+					log.Printf("Order %s is still not finished(%s)", id, orderInfo.Status)
 					return nil
 				}
 				_, execError := p.conn.Exec(
 					ctx,
 					`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-					string(orderInfo.Status),
+					string(MakeOrderStatus(orderInfo.Status)),
 					orderInfo.Accrual,
 					id,
 				)
