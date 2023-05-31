@@ -94,7 +94,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 			continue
 		}
 		orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, order.ID)
-		status := order.Status
+		var status OrderStatus
 		if orderInfoError != nil {
 			if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
 				status = OrderStatusInvalid
