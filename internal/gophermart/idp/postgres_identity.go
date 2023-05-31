@@ -57,6 +57,9 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		if duplicateError != nil {
 			return duplicateError
 		}
+		if duplicateResult.Err() != nil {
+			return ErrOrderDuplicate
+		}
 
 		var duplicateOwner string
 		scanDuplicateError := duplicateResult.Scan(&duplicateOwner)
@@ -82,6 +85,9 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		return nil, queryError
 	}
 	defer result.Close()
+	if result.Err() != nil {
+		return nil, result.Err()
+	}
 
 	orders := make([]Order, 0)
 	for result.Next() {
