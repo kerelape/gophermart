@@ -56,18 +56,18 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 
 	_, insertError := p.conn.Exec(
 		ctx,
-		`INSERT INTO orders(id, owner, status, time, accrual) VALUES($1, $2, $3, $4, $5)`,
+		`INSERT INTO orders VALUES($1, $2, $3, $4, $5)`,
 		id,
 		p.username,
-		string(MakeOrderStatus(order.Status)),
 		time.Now().Unix(),
+		string(MakeOrderStatus(order.Status)),
 		order.Accrual,
 	)
 	return insertError
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
-	result, queryError := p.conn.Query(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT id,status,time,accrual FROM orders WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}
