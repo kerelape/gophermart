@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
 
@@ -56,7 +55,10 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 	query := `INSERT INTO identities(username, password) VALUES($1, $2)`
 	_, execError := transaction.ExecContext(ctx, query, username, encodedPasswordHash)
 	if execError != nil {
-		return errors.Join(execError, transaction.Rollback())
+		if err := transaction.Rollback(); err != nil {
+			return err
+		}
+		return execError
 	}
 	return transaction.Commit()
 }
