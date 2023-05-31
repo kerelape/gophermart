@@ -98,8 +98,28 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 }
 
 func (p PostgresIdentity) Balance(ctx context.Context) (Balance, error) {
-	//TODO implement me
-	panic("implement me")
+	orders, ordersError := p.Orders(ctx)
+	if ordersError != nil {
+		return Balance{}, ordersError
+	}
+
+	withdrawals, withdrawalsError := p.Withdrawals(ctx)
+	if withdrawalsError != nil {
+		return Balance{}, withdrawalsError
+	}
+
+	balance := Balance{}
+	for _, order := range orders {
+		if order.Status == OrderStatusProcessed {
+			balance.Current += order.Accrual
+		}
+	}
+	for _, withdrawal := range withdrawals {
+		balance.Current -= withdrawal.Sum
+		balance.Withdrawn += withdrawal.Sum
+	}
+
+	return balance, nil
 }
 
 func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount float64) error {

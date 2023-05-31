@@ -45,15 +45,15 @@ type Withdrawal struct {
 type Order struct {
 	ID      string
 	Status  OrderStatus
-	Accrual int // -1 means no Accrual.
+	Accrual float64
 	Time    time.Time
 }
 
 type OrderStatus string
 
 var (
-	OrderStatusNew        OrderStatus = "NEW"
-	OrderStatusProcessing             = "PROCESSING"
-	OrderStatusInvalid                = "INVALID"
-	OrderStatusProcessed              = "PROCESSED"
+	OrderStatusNew        = OrderStatus("NEW")
+	OrderStatusProcessing = OrderStatus("PROCESSING")
+	OrderStatusInvalid    = OrderStatus("INVALID")
+	OrderStatusProcessed  = OrderStatus("PROCESSED")
 )
