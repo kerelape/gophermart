@@ -13,14 +13,16 @@ type Gophermart struct {
 	addressAPIServer     string
 	addressAccrualSystem string
 	addressDatabase      string
+	jwtSecret            string
 }
 
 // New creates a new Gophermart.
-func New(addressAPIServer, addressAccrualSystem, addressDatabase string) Gophermart {
+func New(addressAPIServer, addressAccrualSystem, addressDatabase, jwtSecret string) Gophermart {
 	return Gophermart{
 		addressAPIServer:     addressAPIServer,
 		addressAccrualSystem: addressAccrualSystem,
 		addressDatabase:      addressDatabase,
+		jwtSecret:            jwtSecret,
 	}
 }
 
@@ -32,7 +34,7 @@ func (g Gophermart) Run(ctx context.Context) error {
 			http.DefaultClient,
 		),
 	)
-	identityProvider := idp.NewBearerIdentityProvider(database, []byte("top-secret"))
+	identityProvider := idp.NewBearerIdentityProvider(database, []byte(g.jwtSecret))
 	apiService := api.New(identityProvider, g.addressAPIServer)
 
 	manager := runnable.NewManager()
