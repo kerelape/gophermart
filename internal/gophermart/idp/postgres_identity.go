@@ -87,10 +87,12 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 	for result.Next() {
 		order := Order{}
 		var status string
-		if err := result.Scan(&order.ID, &status, &order.Time, &order.Accrual); err != nil {
+		var orderTime int64
+		if err := result.Scan(&order.ID, &status, &orderTime, &order.Accrual); err != nil {
 			return nil, err
 		}
 		order.Status = OrderStatus(status)
+		order.Time = time.UnixMilli(orderTime)
 		orders = append(orders, order)
 	}
 
@@ -141,15 +143,30 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 		`INSERT INTO withdrawals(order, sum, time, owner) VALUES($1, $2, $3, $4)`,
 		order,
 		amount,
-		time.Now().Unix(),
+		time.Now().UnixMilli(),
 		p.username,
 	)
 	return execError
 }
 
 func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error) {
-	//TODO implement me
-	panic("implement me")
+	result, queryError := p.db.QueryContext(ctx, `SELECT (orderID, sum, time) FROM withdrawals WHERE owner = $1`, p.username)
+	if queryError != nil {
+		return nil, queryError
+	}
+	defer result.Close()
+
+	withdrawals := make([]Withdrawal, 0)
+	for result.Next() {
+		withdrawal := Withdrawal{}
+		var withdrawalTime int64
+		if err := result.Scan(&withdrawal.Order, &withdrawal.Sum, &withdrawalTime); err != nil {
+			return nil, err
+		}
+		withdrawal.Time = time.UnixMilli(withdrawalTime)
+	}
+
+	return withdrawals, nil
 }
 
 func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) (bool, error) {

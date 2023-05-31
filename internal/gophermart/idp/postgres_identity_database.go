@@ -97,7 +97,7 @@ func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 		// Create withdrawals table.
 		`
 		CREATE TABLE IF NOT EXISTS withdrawals(
-		    order TEXT UNIQUE PRIMARY KEY,
+		    orderID TEXT UNIQUE PRIMARY KEY,
 			sum DECIMAL,
 			time BIGINT,
 		    owner TEXT
