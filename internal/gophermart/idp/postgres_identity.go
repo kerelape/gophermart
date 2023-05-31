@@ -157,7 +157,7 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 
 	_, execError := p.conn.Exec(
 		ctx,
-		`INSERT INTO withdrawals(order, sum, time, owner) VALUES($1, $2, $3, $4)`,
+		`INSERT INTO withdrawals VALUES($1, $2, $3, $4)`,
 		order,
 		amount,
 		time.Now().UnixMilli(),
@@ -167,23 +167,25 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 }
 
 func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error) {
-	result, queryError := p.conn.Query(ctx, `SELECT (orderID, sum, time) FROM withdrawals WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT orderID,sum,time FROM withdrawals WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}
 	defer result.Close()
-	if result.Err() != nil {
-		return []Withdrawal{}, result.Err()
-	}
 
 	withdrawals := make([]Withdrawal, 0)
 	for result.Next() {
+		if err := result.Err(); err != nil {
+			return nil, err
+		}
+
 		withdrawal := Withdrawal{}
 		var withdrawalTime int64
 		if err := result.Scan(&withdrawal.Order, &withdrawal.Sum, &withdrawalTime); err != nil {
 			return nil, err
 		}
 		withdrawal.Time = time.UnixMilli(withdrawalTime)
+
 		withdrawals = append(withdrawals, withdrawal)
 	}
 
