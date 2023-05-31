@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	// ErrOrderInvalid is returned when an order ID is in wrong format.
+	// ErrOrderInvalid is returned when an order Order is in wrong format.
 	ErrOrderInvalid = errors.New("invalid order format")
 
 	// ErrOrderDuplicate is returned when the order has already been added to this user.
@@ -37,9 +37,9 @@ type User interface {
 }
 
 type Withdrawal struct {
-	ID   string
-	Sum  float64
-	Time time.Time
+	Order string
+	Sum   float64
+	Time  time.Time
 }
 
 type Order struct {

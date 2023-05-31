@@ -53,7 +53,7 @@ func (w Withdrawals) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	response := make([]map[string]any, len(withdrawals))
 	for i, withdrawal := range withdrawals {
 		response[i] = map[string]any{
-			"order":        withdrawal.ID,
+			"order":        withdrawal.Order,
 			"sum":          withdrawal.Sum,
 			"processed_at": withdrawal.Time.Format(time.RFC3339),
 		}

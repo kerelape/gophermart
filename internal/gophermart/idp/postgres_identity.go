@@ -123,8 +123,28 @@ func (p PostgresIdentity) Balance(ctx context.Context) (Balance, error) {
 }
 
 func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount float64) error {
-	//TODO implement me
-	panic("implement me")
+	balance, balanceError := p.Balance(ctx)
+	if balanceError != nil {
+		return balanceError
+	}
+	if balance.Current < amount {
+		return ErrBalanceTooLow
+	}
+
+	_, orderInfoError := p.accrual.OrderInfo(ctx, order)
+	if orderInfoError != nil {
+		return ErrOrderInvalid
+	}
+
+	_, execError := p.db.ExecContext(
+		ctx,
+		`INSERT INTO withdrawals(order, sum, time, owner) VALUES($1, $2, $3, $4)`,
+		order,
+		amount,
+		time.Now().Unix(),
+		p.username,
+	)
+	return execError
 }
 
 func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error) {
