@@ -89,7 +89,16 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		order := Order{}
 		var status string
 		var orderTime int64
-		if err := result.Scan(&order.ID, &status, &orderTime, &order.Accrual); err != nil {
+		if err := result.Scan(&order.ID); err != nil {
+			return nil, err
+		}
+		if err := result.Scan(&status); err != nil {
+			return nil, err
+		}
+		if err := result.Scan(&orderTime); err != nil {
+			return nil, err
+		}
+		if err := result.Scan(&order.Accrual); err != nil {
 			return nil, err
 		}
 		order.Status = OrderStatus(status)
