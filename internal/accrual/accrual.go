@@ -34,6 +34,7 @@ func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error)
 	}
 
 	in, doError := a.Client.Do(out)
+	defer in.Body.Close()
 	if doError != nil {
 		return OrderInfo{}, doError
 	}
