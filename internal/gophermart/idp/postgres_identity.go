@@ -161,6 +161,9 @@ func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error)
 		return nil, queryError
 	}
 	defer result.Close()
+	if result.Err() != nil {
+		return []Withdrawal{}, result.Err()
+	}
 
 	withdrawals := make([]Withdrawal, 0)
 	for result.Next() {
