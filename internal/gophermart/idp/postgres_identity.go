@@ -35,7 +35,7 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 	}
 
 	if err := goluhn.Validate(id); err != nil {
-		order.Status = OrderStatusInvalid
+		return ErrOrderInvalid
 	}
 
 	_, insertError := p.conn.Exec(
@@ -61,10 +61,6 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 			return ErrOrderDuplicate
 		} else {
 			return ErrOrderUnowned
-		}
-	} else {
-		if order.Status == OrderStatusInvalid {
-			return ErrOrderInvalid
 		}
 	}
 	return nil
