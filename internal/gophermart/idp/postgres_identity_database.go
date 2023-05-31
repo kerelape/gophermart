@@ -4,10 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"github.com/kerelape/gophermart/internal/accrual"
-	"golang.org/x/crypto/bcrypt"
-
 	_ "github.com/lib/pq"
+	"github.com/pior/runnable"
+	"golang.org/x/crypto/bcrypt"
+	"sync"
+	"time"
 )
 
 type PostgresIdentityDatabase struct {
@@ -71,6 +74,13 @@ func (p *PostgresIdentityDatabase) Identity(username string) Identity {
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
+	manager := runnable.NewManager()
+	manager.Add(runnable.Func(p.updateStatuses))
+	manager.Add(runnable.Func(p.connect))
+	return manager.Build().Run(ctx)
+}
+
+func (p *PostgresIdentityDatabase) connect(ctx context.Context) error {
 	db, openError := sql.Open("postgres", p.dsn)
 	if openError != nil {
 		return openError
@@ -126,4 +136,68 @@ func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	p.db = db
 	<-ctx.Done()
 	return p.db.Close()
+}
+
+func (p *PostgresIdentityDatabase) updateStatuses(ctx context.Context) error {
+	for {
+		timeToSleep := time.Second * 2
+
+		rows, queryError := p.db.QueryContext(
+			ctx,
+			`SELECT id FROM orders WHERE status != $1 and status != $2`,
+			OrderStatusInvalid,
+			OrderStatusProcessed,
+		)
+		if queryError != nil {
+			return queryError
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+
+		ordersToUpdate := make([]string, 0)
+		for rows.Next() {
+			if rows.Err() != nil {
+				return rows.Err()
+			}
+			var order string
+			if err := rows.Scan(&order); err != nil {
+				return err
+			}
+			ordersToUpdate = append(ordersToUpdate, order)
+		}
+
+		updatedOrders := make([]Order, len(ordersToUpdate))
+		errorsChannel := make(chan error, len(ordersToUpdate))
+		wg := sync.WaitGroup{}
+		wg.Add(len(ordersToUpdate))
+		for i, orderID := range ordersToUpdate {
+			go func(i int, id string) {
+				defer wg.Done()
+				orderInfo, err := p.accrual.OrderInfo(ctx, id)
+				if err != nil {
+					errorsChannel <- err
+					return
+				}
+				updatedOrders[i] = Order{
+					ID:     orderInfo.Order,
+					Status: OrderStatus(orderInfo.Status),
+				}
+			}(i, orderID)
+		}
+		wg.Wait()
+		for err := range errorsChannel {
+			if errors.Is(err, accrual.ErrTooManyRequests) {
+				timeToSleep = time.Second * 60
+				break
+			}
+		}
+
+		time.Sleep(timeToSleep)
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+	}
 }
