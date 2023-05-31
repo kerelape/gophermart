@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -32,6 +33,7 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 	token := in.Header.Get("Authorization")
 	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
+		log.Printf("failed to get user: %v", userError)
 		status := http.StatusInternalServerError
 		if errors.Is(userError, idp.ErrBadCredentials) {
 			status = http.StatusUnauthorized
@@ -49,6 +51,7 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 
 	addOrderError := user.AddOrder(in.Context(), string(order))
 	if addOrderError != nil {
+		log.Printf("failed to add order: %v", addOrderError)
 		if errors.Is(addOrderError, idp.ErrOrderDuplicate) {
 			out.WriteHeader(http.StatusOK)
 			return
@@ -99,7 +102,7 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 			order["accrual"] = orders[i].Accrual
 		}
 	}
-	out.Header().Add("Content-Type", "application/json")
+	out.Header().Set("Content-Type", "application/json")
 	out.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(out).Encode(response); err != nil {
 		panic(err)
