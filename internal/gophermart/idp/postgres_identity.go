@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	"time"
 )
 
@@ -94,6 +95,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 			continue
 		}
 		orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, order.ID)
+		log.Printf("Order(%s): %v | %v", order.ID, orderInfo, orderInfoError)
 		if orderInfoError != nil {
 			if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
 				orders[i].Status = OrderStatusInvalid
