@@ -10,3 +10,5 @@ github.com/pior/runnable v0.11.0 h1:UoiEX7Ln4kukNZgt+f2HcfecY8lCBh2IzmudI3ZxMdI=
 github.com/pior/runnable v0.11.0/go.mod h1:n7HfnLQ3LrH/y5976uapiKf8ARU4QmMsMZC3BakicLs=
 golang.org/x/crypto v0.9.0 h1:LF6fAI+IutBocDJ2OT0Q1g8plpYljMZ4+lty+dsqw3g=
 golang.org/x/crypto v0.9.0/go.mod h1:yrmDGqONDYtNj3tH8X9dzUun2m2lzPa9ngI6/RUPGR0=
+golang.org/x/sync v0.2.0 h1:PUR+T4wwASmuSTYdKjYHI5TD22Wy5ogLU5qZCOLxBrI=
+golang.org/x/sync v0.2.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
