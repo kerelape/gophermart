@@ -99,6 +99,7 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 			order["accrual"] = orders[i].Accrual
 		}
 	}
+	out.Header().Add("Content-Type", "application/json")
 	out.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(out).Encode(response); err != nil {
 		panic(err)

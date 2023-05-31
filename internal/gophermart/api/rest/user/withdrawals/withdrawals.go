@@ -58,6 +58,7 @@ func (w Withdrawals) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 			"processed_at": withdrawal.Time.Format(time.RFC3339),
 		}
 	}
+	out.Header().Add("Content-Type", "application/json")
 	out.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(out).Encode(response); err != nil {
 		panic(err)
