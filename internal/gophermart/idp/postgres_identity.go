@@ -27,21 +27,15 @@ func NewPostgresIdentity(username string, conn *pgx.Conn, accrual accrual.Accrua
 }
 
 func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
-	if err := goluhn.Validate(id); err != nil {
-		return ErrOrderInvalid
+	order := Order{
+		ID:      id,
+		Time:    time.Now(),
+		Accrual: 0.0,
+		Status:  OrderStatusNew,
 	}
 
-	duplicateRow := p.conn.QueryRow(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
-	var owner string
-	scanDuplicateError := duplicateRow.Scan(&owner)
-	if scanDuplicateError == nil {
-		if owner == p.username {
-			return ErrOrderDuplicate
-		} else {
-			return ErrOrderUnowned
-		}
-	} else if !errors.Is(scanDuplicateError, pgx.ErrNoRows) {
-		return scanDuplicateError
+	if err := goluhn.Validate(id); err != nil {
+		order.Status = OrderStatusInvalid
 	}
 
 	_, insertError := p.conn.Exec(
@@ -49,12 +43,31 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		`INSERT INTO orders VALUES($1, $2, $3, $4, $5)`,
 		id,
 		p.username,
-		time.Now().Unix(),
-		string(OrderStatusNew),
-		0.0,
+		order.Time.UnixMilli(),
+		string(order.Status),
+		order.Accrual,
 	)
 
-	return insertError
+	if insertError != nil {
+		duplicateRow := p.conn.QueryRow(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
+		var owner string
+		if err := duplicateRow.Scan(&owner); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return insertError
+			}
+			return err
+		}
+		if owner == p.username {
+			return ErrOrderDuplicate
+		} else {
+			return ErrOrderUnowned
+		}
+	} else {
+		if order.Status == OrderStatusInvalid {
+			return ErrOrderInvalid
+		}
+	}
+	return nil
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
