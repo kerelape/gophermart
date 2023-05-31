@@ -85,6 +85,7 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 
 	orders, ordersError := user.Orders(in.Context())
 	if ordersError != nil {
+		log.Printf("failed to get orders: %v", ordersError)
 		status := http.StatusInternalServerError
 		http.Error(out, http.StatusText(status), status)
 		return
