@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5/middleware"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -27,6 +28,7 @@ func New(idp idp.IdentityProvider, address string) API {
 
 func (a API) Run(ctx context.Context) error {
 	router := chi.NewRouter().Group(func(router chi.Router) {
+		router.Use(middleware.Logger)
 		router.Mount("/api", a.rest.Route())
 	})
 	server := http.Server{
