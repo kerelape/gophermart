@@ -44,6 +44,9 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 	if err := duplicateResult.Close(); err != nil {
 		return err
 	}
+	if err := duplicateResult.Err(); err != nil {
+		return err
+	}
 
 	order, orderError := p.accrual.OrderInfo(ctx, id)
 	if orderError != nil {
