@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
+	"log"
 	"time"
 )
 
@@ -86,6 +87,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		}
 		order.Status = OrderStatus(status)
 		order.Time = time.UnixMilli(orderTime)
+		log.Printf("Order(%s, %s)", order.ID, order.Status)
 		orders = append(orders, order)
 	}
 
