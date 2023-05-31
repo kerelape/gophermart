@@ -67,7 +67,7 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
-	result, queryError := p.conn.Query(ctx, `SELECT id, status, time, accrual FROM orders WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}

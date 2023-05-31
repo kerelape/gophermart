@@ -96,13 +96,15 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 		return
 	}
 
-	response := make([]map[string]any, 0, len(orders))
-	for i, order := range response {
-		order["number"] = orders[i].ID
-		order["created_at"] = orders[i].Time.Format(time.RFC3339)
-		order["status"] = string(orders[i].Status)
-		if orders[i].Accrual > 0 {
-			order["accrual"] = orders[i].Accrual
+	response := make([]any, 0)
+	for _, o := range orders {
+		order := map[string]any{
+			"number":     o.ID,
+			"created_at": o.Time.Format(time.RFC3339),
+			"status":     string(o.Status),
+		}
+		if o.Accrual > 0 {
+			order["accrual"] = o.Accrual
 		}
 		response = append(response, order)
 	}
