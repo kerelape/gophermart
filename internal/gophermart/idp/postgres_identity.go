@@ -26,26 +26,6 @@ func NewPostgresIdentity(username string, conn *pgx.Conn, accrual accrual.Accrua
 }
 
 func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
-	duplicateResult, duplicateError := p.conn.Query(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
-	if duplicateError != nil {
-		return duplicateError
-	}
-	if duplicateResult.Next() {
-		var owner string
-		if err := duplicateResult.Scan(&owner); err != nil {
-			return err
-		}
-		if owner == p.username {
-			return ErrOrderDuplicate
-		} else {
-			return ErrOrderUnowned
-		}
-	}
-	duplicateResult.Close()
-	if err := duplicateResult.Err(); err != nil {
-		return err
-	}
-
 	order, orderError := p.accrual.OrderInfo(ctx, id)
 	if orderError != nil {
 		if errors.Is(orderError, accrual.ErrUnknownOrder) {
@@ -63,7 +43,26 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		string(MakeOrderStatus(order.Status)),
 		order.Accrual,
 	)
-	return insertError
+
+	if insertError != nil {
+		duplicateRow := p.conn.QueryRow(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
+
+		var owner string
+		if err := duplicateRow.Scan(&owner); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return insertError
+			}
+			return err
+		}
+
+		if owner != p.username {
+			return ErrOrderUnowned
+		} else {
+			return ErrOrderDuplicate
+		}
+	}
+
+	return nil
 }
 
 func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
