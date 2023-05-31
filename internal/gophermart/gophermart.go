@@ -10,26 +10,30 @@ import (
 )
 
 type Gophermart struct {
-	config Config
+	addressAPIServer     string
+	addressAccrualSystem string
+	addressDatabase      string
 }
 
 // New creates a new Gophermart.
-func New(config Config) Gophermart {
+func New(addressAPIServer, addressAccrualSystem, addressDatabase string) Gophermart {
 	return Gophermart{
-		config: config,
+		addressAPIServer:     addressAPIServer,
+		addressAccrualSystem: addressAccrualSystem,
+		addressDatabase:      addressDatabase,
 	}
 }
 
 func (g Gophermart) Run(ctx context.Context) error {
 	database := idp.NewPostgresIdentityDatabase(
-		g.config.AddressDatabase,
+		g.addressDatabase,
 		accrual.New(
-			g.config.AddressAccrualSystem,
+			g.addressAccrualSystem,
 			http.DefaultClient,
 		),
 	)
 	identityProvider := idp.NewBearerIdentityProvider(database, []byte("top-secret"))
-	apiService := api.New(identityProvider, g.config.AddressAPIServer)
+	apiService := api.New(identityProvider, g.addressAPIServer)
 
 	manager := runnable.NewManager()
 	manager.Add(database)
