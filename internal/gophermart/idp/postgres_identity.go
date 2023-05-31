@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"github.com/ShiraazMoollatjie/goluhn"
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
@@ -26,7 +27,7 @@ func NewPostgresIdentity(username string, conn *pgx.Conn, accrual accrual.Accrua
 }
 
 func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
-	if !validateOrderID(id) {
+	if err := goluhn.Validate(id); err != nil {
 		return ErrOrderInvalid
 	}
 
@@ -194,21 +195,4 @@ func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) 
 	}
 
 	return bcrypt.CompareHashAndPassword(passwordHash, []byte(password)) == nil, nil
-}
-
-func validateOrderID(id string) bool {
-	sum := 0
-	length := len(id)
-	parity := length % 2
-	for i := len(id) - 1; i >= 0; i-- {
-		digit := int(id[i])
-		if i%2 == parity {
-			digit *= 2
-			if digit > 9 {
-				digit -= 9
-			}
-		}
-		sum += digit
-	}
-	return sum%10 == 0
 }
