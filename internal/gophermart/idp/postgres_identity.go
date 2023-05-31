@@ -2,9 +2,9 @@ package idp
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
@@ -13,21 +13,21 @@ import (
 
 type PostgresIdentity struct {
 	username string
-	db       *sql.DB
+	conn     *pgx.Conn
 	accrual  accrual.Accrual
 }
 
 // NewPostgresIdentity creates a new PostgresIdentity.
-func NewPostgresIdentity(username string, db *sql.DB, accrual accrual.Accrual) PostgresIdentity {
+func NewPostgresIdentity(username string, conn *pgx.Conn, accrual accrual.Accrual) PostgresIdentity {
 	return PostgresIdentity{
 		username: username,
-		db:       db,
+		conn:     conn,
 		accrual:  accrual,
 	}
 }
 
 func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
-	duplicateResult, duplicateError := p.db.QueryContext(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
+	duplicateResult, duplicateError := p.conn.Query(ctx, `SELECT owner FROM orders WHERE id = $1`, id)
 	if duplicateError != nil {
 		return duplicateError
 	}
@@ -42,9 +42,7 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 			return ErrOrderUnowned
 		}
 	}
-	if err := duplicateResult.Close(); err != nil {
-		return err
-	}
+	duplicateResult.Close()
 	if err := duplicateResult.Err(); err != nil {
 		return err
 	}
@@ -57,10 +55,9 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		return orderError
 	}
 
-	_, insertError := p.db.ExecContext(
+	_, insertError := p.conn.Exec(
 		ctx,
-		`
-		INSERT INTO orders(id, owner, status, time, accrual) VALUES($1, $2, $3, $4, $5)`,
+		`INSERT INTO orders(id, owner, status, time, accrual) VALUES($1, $2, $3, $4, $5)`,
 		id,
 		p.username,
 		string(order.Status),
@@ -75,7 +72,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		return nil, err
 	}
 
-	result, queryError := p.db.QueryContext(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT (id, status, time, accrual) FROM orders WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}
@@ -89,16 +86,7 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		order := Order{}
 		var status string
 		var orderTime int64
-		if err := result.Scan(&order.ID); err != nil {
-			return nil, err
-		}
-		if err := result.Scan(&status); err != nil {
-			return nil, err
-		}
-		if err := result.Scan(&orderTime); err != nil {
-			return nil, err
-		}
-		if err := result.Scan(&order.Accrual); err != nil {
+		if err := result.Scan(&order.ID, &status, &orderTime, &order.Accrual); err != nil {
 			return nil, err
 		}
 		order.Status = OrderStatus(status)
@@ -148,7 +136,7 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 		return ErrOrderInvalid
 	}
 
-	_, execError := p.db.ExecContext(
+	_, execError := p.conn.Exec(
 		ctx,
 		`INSERT INTO withdrawals(order, sum, time, owner) VALUES($1, $2, $3, $4)`,
 		order,
@@ -160,7 +148,7 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 }
 
 func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error) {
-	result, queryError := p.db.QueryContext(ctx, `SELECT (orderID, sum, time) FROM withdrawals WHERE owner = $1`, p.username)
+	result, queryError := p.conn.Query(ctx, `SELECT (orderID, sum, time) FROM withdrawals WHERE owner = $1`, p.username)
 	if queryError != nil {
 		return nil, queryError
 	}
@@ -184,11 +172,7 @@ func (p PostgresIdentity) Withdrawals(ctx context.Context) ([]Withdrawal, error)
 }
 
 func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) (bool, error) {
-	query := `SELECT password FROM identities WHERE username = $1`
-	row := p.db.QueryRowContext(ctx, query, p.username)
-	if row.Err() != nil {
-		return false, row.Err()
-	}
+	row := p.conn.QueryRow(ctx, `SELECT password FROM identities WHERE username = $1`, p.username)
 
 	var encodedPasswordHash string
 	if err := row.Scan(&encodedPasswordHash); err != nil {
@@ -204,7 +188,7 @@ func (p PostgresIdentity) ComparePassword(ctx context.Context, password string) 
 }
 
 func (p PostgresIdentity) updateOrders(ctx context.Context) error {
-	rows, queryError := p.db.QueryContext(
+	rows, queryError := p.conn.Query(
 		ctx,
 		`SELECT id FROM orders WHERE owner = $1 AND status IN ($1, $2)`,
 		OrderStatusNew,
@@ -224,9 +208,7 @@ func (p PostgresIdentity) updateOrders(ctx context.Context) error {
 		}
 		ordersToUpdate = append(ordersToUpdate, orderID)
 	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
+	rows.Close()
 
 	wg, wgContext := errgroup.WithContext(ctx)
 	wg.SetLimit(len(ordersToUpdate))
@@ -237,7 +219,7 @@ func (p PostgresIdentity) updateOrders(ctx context.Context) error {
 				if err != nil {
 					return err
 				}
-				_, execError := p.db.ExecContext(
+				_, execError := p.conn.Exec(
 					wgContext,
 					`UPDATE orders SET status = $1 WHERE id = $2`,
 					string(orderInfo.Status),

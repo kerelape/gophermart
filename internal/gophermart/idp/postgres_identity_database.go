@@ -2,19 +2,17 @@ package idp
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
+	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
-
-	_ "github.com/lib/pq"
 )
 
 type PostgresIdentityDatabase struct {
 	dsn     string
 	accrual accrual.Accrual
 
-	db *sql.DB
+	conn *pgx.Conn
 }
 
 func NewPostgresIdentityDatabase(dsn string, accrual accrual.Accrual) *PostgresIdentityDatabase {
@@ -22,12 +20,12 @@ func NewPostgresIdentityDatabase(dsn string, accrual accrual.Accrual) *PostgresI
 		dsn:     dsn,
 		accrual: accrual,
 
-		db: nil,
+		conn: nil,
 	}
 }
 
 func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, password string) error {
-	if p.db == nil {
+	if p.conn == nil {
 		panic("not yet connected to the database")
 	}
 
@@ -37,46 +35,44 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 	}
 	encodedPasswordHash := base64.StdEncoding.EncodeToString(passwordHash)
 
-	rows, findDuplicateError := p.db.QueryContext(ctx, `SELECT ALL FROM identities where username = $1`, username)
+	rows, findDuplicateError := p.conn.Query(ctx, `SELECT ALL FROM identities where username = $1`, username)
 	if findDuplicateError != nil {
 		return findDuplicateError
 	}
 	if rows.Next() {
 		return ErrDuplicateUsername
 	}
-	if err := rows.Close(); err != nil {
-		return err
-	}
+	rows.Close()
 	if rows.Err() != nil {
 		return rows.Err()
 	}
 
-	transaction, transactionError := p.db.Begin()
+	transaction, transactionError := p.conn.Begin(ctx)
 	if transactionError != nil {
 		return transactionError
 	}
 	query := `INSERT INTO identities(username, password) VALUES($1, $2)`
-	_, execError := transaction.ExecContext(ctx, query, username, encodedPasswordHash)
+	_, execError := transaction.Exec(ctx, query, username, encodedPasswordHash)
 	if execError != nil {
-		if err := transaction.Rollback(); err != nil {
+		if err := transaction.Rollback(ctx); err != nil {
 			return err
 		}
 		return execError
 	}
-	return transaction.Commit()
+	return transaction.Commit(ctx)
 }
 
 func (p *PostgresIdentityDatabase) Identity(username string) Identity {
-	return NewPostgresIdentity(username, p.db, p.accrual)
+	return NewPostgresIdentity(username, p.conn, p.accrual)
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
-	db, openError := sql.Open("postgres", p.dsn)
-	if openError != nil {
-		return openError
+	conn, connectError := pgx.Connect(ctx, p.dsn)
+	if connectError != nil {
+		return connectError
 	}
 
-	transaction, transactionError := db.Begin()
+	transaction, transactionError := conn.Begin(ctx)
 	if transactionError != nil {
 		return transactionError
 	}
@@ -111,19 +107,19 @@ func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	}
 
 	for _, query := range queries {
-		if _, err := transaction.ExecContext(ctx, query); err != nil {
-			if err := transaction.Rollback(); err != nil {
+		if _, err := transaction.Exec(ctx, query); err != nil {
+			if err := transaction.Rollback(ctx); err != nil {
 				return err
 			}
 			return err
 		}
 	}
 
-	if err := transaction.Commit(); err != nil {
-		return transaction.Rollback()
+	if err := transaction.Commit(ctx); err != nil {
+		return transaction.Rollback(ctx)
 	}
 
-	p.db = db
+	p.conn = conn
 	<-ctx.Done()
-	return p.db.Close()
+	return p.conn.Close(context.Background())
 }
