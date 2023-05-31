@@ -3,11 +3,13 @@ package idp
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"github.com/pior/runnable"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
+	"sync"
 	"time"
 )
 
@@ -15,23 +17,24 @@ type PostgresIdentityDatabase struct {
 	dsn     string
 	accrual accrual.Accrual
 
-	conn *pgx.Conn
+	conn  *pgx.Conn
+	ready *sync.WaitGroup
 }
 
 func NewPostgresIdentityDatabase(dsn string, accrual accrual.Accrual) *PostgresIdentityDatabase {
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	return &PostgresIdentityDatabase{
 		dsn:     dsn,
 		accrual: accrual,
 
-		conn: nil,
+		conn:  nil,
+		ready: &wg,
 	}
 }
 
 func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, password string) error {
-	if p.conn == nil {
-		panic("not yet connected to the database")
-	}
-
+	p.ready.Wait()
 	passwordHash, passwordHashError := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if passwordHashError != nil {
 		return passwordHashError
@@ -66,17 +69,22 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 }
 
 func (p *PostgresIdentityDatabase) Identity(username string) Identity {
+	p.ready.Wait()
 	return NewPostgresIdentity(username, p.conn, p.accrual)
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	manager := runnable.NewManager()
-	manager.Add(runnable.Func(p.connection))
-	manager.Add(runnable.Func(p.update))
+	manager.Add(runnable.Func(p.initConnection))
+	manager.Add(runnable.Every(runnable.Func(p.updateOrders), time.Second))
 	return manager.Build().Run(ctx)
 }
 
-func (p *PostgresIdentityDatabase) connection(ctx context.Context) error {
+func (p *PostgresIdentityDatabase) initConnection(ctx context.Context) error {
+	if p.conn != nil {
+		return errors.New("connection is already initialized")
+	}
+
 	conn, connectError := pgx.Connect(ctx, p.dsn)
 	if connectError != nil {
 		return connectError
@@ -130,64 +138,55 @@ func (p *PostgresIdentityDatabase) connection(ctx context.Context) error {
 	}
 
 	p.conn = conn
+	p.ready.Done()
 	<-ctx.Done()
 	return p.conn.Close(context.Background())
 }
 
-func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
-	for {
-		rows, queryError := p.conn.Query(
-			ctx,
-			`SELECT id FROM orders WHERE status IN ($1, $2)`,
-			string(OrderStatusNew),
-			string(OrderStatusProcessing),
-		)
-		if queryError != nil {
-			return queryError
-		}
+func (p *PostgresIdentityDatabase) updateOrders(ctx context.Context) error {
+	p.ready.Wait()
+	rows, queryError := p.conn.Query(
+		ctx,
+		`SELECT id FROM orders WHERE status IN ($1, $2)`,
+		string(OrderStatusNew),
+		string(OrderStatusProcessing),
+	)
+	if queryError != nil {
+		return queryError
+	}
 
-		ordersToUpdate := make([]string, 0)
-		for rows.Next() {
-			if err := rows.Err(); err != nil {
-				return err
-			}
-			var id string
-			if err := rows.Scan(&id); err != nil {
-				return err
-			}
-			ordersToUpdate = append(ordersToUpdate, id)
-		}
-		rows.Close()
-
-		eg, egCtx := errgroup.WithContext(ctx)
-		eg.SetLimit(len(ordersToUpdate))
-		for _, id := range ordersToUpdate {
-			eg.Go(func(ctx context.Context, id string) func() error {
-				return func() error {
-					orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
-					if orderInfoError != nil {
-						return orderInfoError
-					}
-					_, execError := p.conn.Exec(
-						ctx,
-						`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-						string(orderInfo.Status),
-						orderInfo.Accrual,
-						id,
-					)
-					return execError
-				}
-			}(egCtx, id))
-		}
-		if err := eg.Wait(); err != nil {
+	ordersToUpdate := make([]string, 0)
+	for rows.Next() {
+		if err := rows.Err(); err != nil {
 			return err
 		}
-
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
 		}
-		time.Sleep(time.Second)
+		ordersToUpdate = append(ordersToUpdate, id)
 	}
+	rows.Close()
+
+	eg, egCtx := errgroup.WithContext(ctx)
+	eg.SetLimit(len(ordersToUpdate))
+	for _, id := range ordersToUpdate {
+		eg.Go(func(ctx context.Context, id string) func() error {
+			return func() error {
+				orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
+				if orderInfoError != nil {
+					return orderInfoError
+				}
+				_, execError := p.conn.Exec(
+					ctx,
+					`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
+					string(orderInfo.Status),
+					orderInfo.Accrual,
+					id,
+				)
+				return execError
+			}
+		}(egCtx, id))
+	}
+	return eg.Wait()
 }
