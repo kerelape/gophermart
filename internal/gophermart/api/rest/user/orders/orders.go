@@ -70,6 +70,8 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 }
 
 func (o Orders) list(out http.ResponseWriter, in *http.Request) {
+	out.Header().Set("Content-Type", "application/json")
+
 	token := in.Header.Get("Authorization")
 	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
@@ -102,7 +104,6 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 			order["accrual"] = orders[i].Accrual
 		}
 	}
-	out.Header().Set("Content-Type", "application/json")
 	out.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(out).Encode(response); err != nil {
 		panic(err)

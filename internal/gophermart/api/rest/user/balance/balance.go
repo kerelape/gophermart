@@ -31,6 +31,8 @@ func (b Balance) Route() http.Handler {
 }
 
 func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
+	out.Header().Set("Content-Type", "application/json")
+
 	token := in.Header.Get("Authorization")
 	user, userError := b.IdentityProvider.User(in.Context(), idp.Token(token))
 	if userError != nil {
