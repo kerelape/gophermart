@@ -46,13 +46,12 @@ func (b BearerIdentityProvider) Authenticate(ctx context.Context, username, pass
 }
 
 func (b BearerIdentityProvider) User(_ context.Context, token Token) (User, error) {
-	rawToken, hasPrefix := strings.CutPrefix(string(token), "Bearer ")
-	if !hasPrefix {
+	if !strings.HasPrefix(string(token), "Bearer ") {
 		return nil, ErrBadCredentials
 	}
 
 	parsedToken, parseTokenError := jwt.Parse(
-		rawToken,
+		strings.TrimPrefix(string(token), "Bearer "),
 		func(token *jwt.Token) (interface{}, error) {
 			return b.secret, nil
 		},
