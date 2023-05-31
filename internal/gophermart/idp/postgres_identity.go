@@ -39,22 +39,14 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		return scanDuplicateError
 	}
 
-	order, orderError := p.accrual.OrderInfo(ctx, id)
-	if orderError != nil {
-		if errors.Is(orderError, accrual.ErrUnknownOrder) {
-			return ErrOrderInvalid
-		}
-		return orderError
-	}
-
 	_, insertError := p.conn.Exec(
 		ctx,
 		`INSERT INTO orders VALUES($1, $2, $3, $4, $5)`,
 		id,
 		p.username,
 		time.Now().Unix(),
-		string(MakeOrderStatus(order.Status)),
-		order.Accrual,
+		string(OrderStatusNew),
+		0.0,
 	)
 
 	return insertError
