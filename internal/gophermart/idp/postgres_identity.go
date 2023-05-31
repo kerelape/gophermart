@@ -145,11 +145,6 @@ func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount flo
 		return ErrBalanceTooLow
 	}
 
-	_, orderInfoError := p.accrual.OrderInfo(ctx, order)
-	if orderInfoError != nil {
-		return ErrOrderInvalid
-	}
-
 	_, execError := p.conn.Exec(
 		ctx,
 		`INSERT INTO withdrawals VALUES($1, $2, $3, $4)`,
