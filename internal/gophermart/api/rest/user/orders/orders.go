@@ -106,6 +106,11 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 		}
 		response = append(response, order)
 	}
+	dbg, err := json.Marshal(response)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(string(dbg))
 	out.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(out).Encode(response); err != nil {
 		panic(err)
