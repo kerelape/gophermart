@@ -148,7 +148,7 @@ func (p *PostgresIdentityDatabase) updateOrders(ctx context.Context) error {
 	p.ready.Wait()
 	rows, queryError := p.conn.Query(
 		ctx,
-		`SELECT id FROM orders WHERE status IN ($1, $2)`,
+		`SELECT id FROM orders WHERE status = $1 OR status = $2`,
 		string(OrderStatusNew),
 		string(OrderStatusProcessing),
 	)

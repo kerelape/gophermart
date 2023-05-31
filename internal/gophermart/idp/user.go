@@ -3,6 +3,7 @@ package idp
 import (
 	"context"
 	"errors"
+	"github.com/kerelape/gophermart/internal/accrual"
 	"time"
 )
 
@@ -71,3 +72,15 @@ var (
 	OrderStatusProcessing = OrderStatus("PROCESSING")
 	OrderStatusProcessed  = OrderStatus("PROCESSED")
 )
+
+func MakeOrderStatus(status accrual.OrderStatus) OrderStatus {
+	switch status {
+	case accrual.OrderStatusRegistered:
+		return OrderStatusNew
+	case accrual.OrderStatusProcessing:
+		return OrderStatusProcessing
+	case accrual.OrderStatusProcessed:
+		return OrderStatusProcessed
+	}
+	return OrderStatusInvalid
+}

@@ -59,7 +59,7 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 		`INSERT INTO orders(id, owner, status, time, accrual) VALUES($1, $2, $3, $4, $5)`,
 		id,
 		p.username,
-		string(order.Status),
+		string(MakeOrderStatus(order.Status)),
 		time.Now().Unix(),
 		order.Accrual,
 	)
