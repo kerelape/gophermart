@@ -153,6 +153,7 @@ func (p *PostgresIdentityDatabase) updateOrders(ctx context.Context) error {
 		string(OrderStatusProcessing),
 	)
 	if queryError != nil {
+		log.Fatalf("Failed to get unfinished orders: %v", queryError)
 		return queryError
 	}
 
