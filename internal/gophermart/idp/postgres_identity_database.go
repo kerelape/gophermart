@@ -6,10 +6,8 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
-	"github.com/pior/runnable"
 	"golang.org/x/crypto/bcrypt"
-	"golang.org/x/sync/errgroup"
-	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -74,14 +72,63 @@ func (p *PostgresIdentityDatabase) Identity(username string) Identity {
 	return NewPostgresIdentity(username, p.conn, p.accrual)
 }
 
-func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
-	manager := runnable.NewManager()
-	manager.Add(runnable.Func(p.initConnection))
-	manager.Add(runnable.Every(runnable.Func(p.updateOrders), time.Second))
-	return manager.Build().Run(ctx)
+func (p *PostgresIdentityDatabase) UpdateOrder(ctx context.Context, id string, status OrderStatus, accrual float64) error {
+	p.ready.Wait()
+	_, err := p.conn.Exec(
+		ctx,
+		`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
+		string(status),
+		accrual,
+		id,
+	)
+	return err
 }
 
-func (p *PostgresIdentityDatabase) initConnection(ctx context.Context) error {
+func (p *PostgresIdentityDatabase) Orders(ctx context.Context, statuses ...OrderStatus) ([]Order, error) {
+	p.ready.Wait()
+	if len(statuses) == 0 {
+		statuses = []OrderStatus{
+			OrderStatusInvalid,
+			OrderStatusProcessed,
+			OrderStatusProcessing,
+			OrderStatusNew,
+		}
+	}
+	stringStatuses := make([]string, 0, len(statuses))
+	for _, status := range statuses {
+		stringStatuses = append(stringStatuses, string(status))
+	}
+	rows, queryError := p.conn.Query(
+		ctx,
+		`SELECT (id, status, accrual, time) FROM orders WHERE status IN ($1)`,
+		strings.Join(stringStatuses, ", "),
+	)
+	if queryError != nil {
+		return nil, queryError
+	}
+
+	orders := make([]Order, 0)
+	for rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		order := Order{}
+		var (
+			orderTime int64
+			status    string
+		)
+		if err := rows.Scan(&order.ID, &status, &order.Accrual, &orderTime); err != nil {
+			return nil, err
+		}
+		order.Status = OrderStatus(status)
+		order.Time = time.UnixMilli(orderTime)
+		orders = append(orders, order)
+	}
+	rows.Close()
+	return orders, nil
+}
+
+func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	if p.conn != nil {
 		return errors.New("connection is already initialized")
 	}
@@ -142,58 +189,4 @@ func (p *PostgresIdentityDatabase) initConnection(ctx context.Context) error {
 	p.ready.Done()
 	<-ctx.Done()
 	return p.conn.Close(context.Background())
-}
-
-func (p *PostgresIdentityDatabase) updateOrders(ctx context.Context) error {
-	p.ready.Wait()
-	rows, queryError := p.conn.Query(
-		ctx,
-		`SELECT id FROM orders WHERE status = $1 OR status = $2`,
-		string(OrderStatusNew),
-		string(OrderStatusProcessing),
-	)
-	if queryError != nil {
-		log.Fatalf("Failed to get unfinished orders: %v", queryError)
-		return queryError
-	}
-
-	ordersToUpdate := make([]string, 0)
-	for rows.Next() {
-		if err := rows.Err(); err != nil {
-			return err
-		}
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return err
-		}
-		log.Printf("Updating %s", id)
-		ordersToUpdate = append(ordersToUpdate, id)
-	}
-	rows.Close()
-
-	eg, egCtx := errgroup.WithContext(ctx)
-	eg.SetLimit(len(ordersToUpdate))
-	for _, id := range ordersToUpdate {
-		eg.Go(func(ctx context.Context, id string) func() error {
-			return func() error {
-				orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
-				if orderInfoError != nil {
-					return orderInfoError
-				}
-				if !OrderStatus(orderInfo.Status).IsFinal() {
-					log.Printf("Order %s is still not finished(%s)", id, orderInfo.Status)
-					return nil
-				}
-				_, execError := p.conn.Exec(
-					ctx,
-					`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-					string(MakeOrderStatus(orderInfo.Status)),
-					orderInfo.Accrual,
-					id,
-				)
-				return execError
-			}
-		}(egCtx, id))
-	}
-	return eg.Wait()
 }

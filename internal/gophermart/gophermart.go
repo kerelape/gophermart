@@ -7,6 +7,7 @@ import (
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"github.com/pior/runnable"
 	"net/http"
+	"time"
 )
 
 type Gophermart struct {
@@ -27,18 +28,14 @@ func New(addressAPIServer, addressAccrualSystem, addressDatabase, jwtSecret stri
 }
 
 func (g Gophermart) Run(ctx context.Context) error {
-	database := idp.NewPostgresIdentityDatabase(
-		g.addressDatabase,
-		accrual.New(
-			g.addressAccrualSystem,
-			http.DefaultClient,
-		),
-	)
+	acc := accrual.New(g.addressAccrualSystem, http.DefaultClient)
+	database := idp.NewPostgresIdentityDatabase(g.addressDatabase, acc)
 	identityProvider := idp.NewBearerIdentityProvider(database, []byte(g.jwtSecret))
 	apiService := api.New(identityProvider, g.addressAPIServer)
 
 	manager := runnable.NewManager()
 	manager.Add(database)
+	manager.Add(runnable.Every(idp.NewUpdateOrdersTask(acc, database), time.Second))
 	manager.Add(apiService)
 	return manager.Build().Run(ctx)
 }
