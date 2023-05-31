@@ -41,7 +41,7 @@ func (p PostgresIdentity) AddOrder(ctx context.Context, id string) error {
 	_, insertError := p.conn.Exec(
 		ctx,
 		`INSERT INTO orders VALUES($1, $2, $3, $4, $5)`,
-		id,
+		order.ID,
 		p.username,
 		order.Time.UnixMilli(),
 		string(order.Status),
