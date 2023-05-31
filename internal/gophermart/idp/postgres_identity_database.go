@@ -7,9 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
-	"strings"
 	"sync"
-	"time"
 )
 
 type PostgresIdentityDatabase struct {
@@ -70,62 +68,6 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 func (p *PostgresIdentityDatabase) Identity(username string) Identity {
 	p.ready.Wait()
 	return NewPostgresIdentity(username, p.conn, p.accrual)
-}
-
-func (p *PostgresIdentityDatabase) UpdateOrder(ctx context.Context, id string, status OrderStatus, accrual float64) error {
-	p.ready.Wait()
-	_, err := p.conn.Exec(
-		ctx,
-		`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-		string(status),
-		accrual,
-		id,
-	)
-	return err
-}
-
-func (p *PostgresIdentityDatabase) Orders(ctx context.Context, statuses ...OrderStatus) ([]Order, error) {
-	p.ready.Wait()
-	if len(statuses) == 0 {
-		statuses = []OrderStatus{
-			OrderStatusInvalid,
-			OrderStatusProcessed,
-			OrderStatusProcessing,
-			OrderStatusNew,
-		}
-	}
-	stringStatuses := make([]string, 0, len(statuses))
-	for _, status := range statuses {
-		stringStatuses = append(stringStatuses, string(status))
-	}
-	rows, queryError := p.conn.Query(
-		ctx,
-		`SELECT (id, status, accrual, time) FROM orders WHERE status IN ($1)`,
-		strings.Join(stringStatuses, ", "),
-	)
-	if queryError != nil {
-		return nil, queryError
-	}
-
-	orders := make([]Order, 0)
-	for rows.Next() {
-		if err := rows.Err(); err != nil {
-			return nil, err
-		}
-		order := Order{}
-		var (
-			orderTime int64
-			status    string
-		)
-		if err := rows.Scan(&order.ID, &status, &order.Accrual, &orderTime); err != nil {
-			return nil, err
-		}
-		order.Status = OrderStatus(status)
-		order.Time = time.UnixMilli(orderTime)
-		orders = append(orders, order)
-	}
-	rows.Close()
-	return orders, nil
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
