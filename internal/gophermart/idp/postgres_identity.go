@@ -79,30 +79,26 @@ func (p PostgresIdentity) Orders(ctx context.Context) ([]Order, error) {
 		if order.Status.IsFinal() {
 			continue
 		}
-		status := order.Status
 		orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, order.ID)
 		if orderInfoError != nil {
 			if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
-				status = OrderStatusInvalid
+				orders[i].Status = OrderStatusInvalid
 			} else {
 				return nil, orderInfoError
 			}
 		} else {
-			status = MakeOrderStatus(orderInfo.Status)
+			orders[i].Status = MakeOrderStatus(orderInfo.Status)
 		}
-		if status != order.Status {
-			orders[i].Status = status
-			orders[i].Accrual = orderInfo.Accrual
-			_, err := p.conn.Exec(
-				ctx,
-				`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
-				string(status),
-				orderInfo.Accrual,
-				orderInfo.Order,
-			)
-			if err != nil {
-				return nil, err
-			}
+		orders[i].Accrual = orderInfo.Accrual
+		_, err := p.conn.Exec(
+			ctx,
+			`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
+			string(orders[i].Status),
+			orderInfo.Accrual,
+			orderInfo.Order,
+		)
+		if err != nil {
+			return nil, err
 		}
 	}
 
