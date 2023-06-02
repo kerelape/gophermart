@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 )
 
 var (
@@ -28,7 +27,7 @@ func New(address string, client *http.Client) Accrual {
 }
 
 func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error) {
-	out, outError := http.NewRequestWithContext(ctx, http.MethodGet, a.Address+"/api/orders/"+order, strings.NewReader(""))
+	out, outError := http.NewRequestWithContext(ctx, http.MethodGet, a.Address+"/api/orders/"+order, nil)
 	if outError != nil {
 		return OrderInfo{}, outError
 	}
