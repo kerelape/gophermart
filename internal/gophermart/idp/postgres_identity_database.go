@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/kerelape/gophermart/internal/accrual"
 	"golang.org/x/crypto/bcrypt"
 	"sync"
@@ -38,31 +39,18 @@ func (p *PostgresIdentityDatabase) Create(ctx context.Context, username, passwor
 	}
 	encodedPasswordHash := base64.StdEncoding.EncodeToString(passwordHash)
 
-	rows, findDuplicateError := p.conn.Query(ctx, `SELECT ALL FROM identities where username = $1`, username)
-	if findDuplicateError != nil {
-		return findDuplicateError
-	}
-	if rows.Next() {
-		return ErrDuplicateUsername
-	}
-	rows.Close()
-	if rows.Err() != nil {
-		return rows.Err()
-	}
-
-	transaction, transactionError := p.conn.Begin(ctx)
-	if transactionError != nil {
-		return transactionError
-	}
-	query := `INSERT INTO identities(username, password) VALUES($1, $2)`
-	_, execError := transaction.Exec(ctx, query, username, encodedPasswordHash)
-	if execError != nil {
-		if err := transaction.Rollback(ctx); err != nil {
-			return err
+	_, insertError := p.conn.Exec(
+		ctx,
+		`INSERT INTO identities(username, password) VALUES($1, $2)`,
+		username,
+		encodedPasswordHash,
+	)
+	if err := new(pgconn.PgError); errors.As(insertError, &err) {
+		if err.Code == "23505" { // unique violation error
+			return ErrDuplicateUsername
 		}
-		return execError
 	}
-	return transaction.Commit(ctx)
+	return insertError
 }
 
 func (p *PostgresIdentityDatabase) Identity(username string) Identity {
