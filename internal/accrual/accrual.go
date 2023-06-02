@@ -44,7 +44,7 @@ func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error)
 		case http.StatusNoContent:
 			return OrderInfo{}, ErrUnknownOrder
 		default:
-			panic(fmt.Errorf("unknown response code %d", in.StatusCode))
+			return OrderInfo{}, fmt.Errorf("unknown response code %d", in.StatusCode)
 		}
 	}
 
