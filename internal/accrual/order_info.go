@@ -1,7 +1,7 @@
 package accrual
 
 type OrderInfo struct {
-	Order   string
-	Status  OrderStatus
-	Accrual float64
+	Order   string      `json:"order"`
+	Status  OrderStatus `json:"status"`
+	Accrual float64     `json:"accrual,omitempty"`
 }

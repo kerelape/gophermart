@@ -48,14 +48,10 @@ func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error)
 		}
 	}
 
-	var response struct {
-		Order   string      `json:"order"`
-		Status  OrderStatus `json:"status"`
-		Accrual float64     `json:"accrual,omitempty"`
-	}
-	if err := json.NewDecoder(in.Body).Decode(&response); err != nil {
+	info := OrderInfo{}
+	if err := json.NewDecoder(in.Body).Decode(&info); err != nil {
 		return OrderInfo{}, err
 	}
 
-	return OrderInfo{response.Order, response.Status, response.Accrual}, nil
+	return info, nil
 }
