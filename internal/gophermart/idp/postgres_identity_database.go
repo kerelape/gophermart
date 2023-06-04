@@ -165,12 +165,23 @@ func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
 					return orderInfoError
 				}
 
+				var status OrderStatus
+				if orderInfoError != nil {
+					if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
+						status = OrderStatusInvalid
+					} else {
+						return orderInfoError
+					}
+				} else {
+					status = MakeOrderStatus(orderInfo.Status)
+				}
+
 				_, err := p.conn.Exec(
 					ctx,
-					`UPDATE orders SET status = $2, accrual = $3 WHERE id = $1`,
-					orderInfo.Order,
-					string(MakeOrderStatus(orderInfo.Status)),
+					`UPDATE orders SET status = $1, accrual = $2 WHERE id = $3`,
+					string(status),
 					orderInfo.Accrual,
+					orderInfo.Order,
 				)
 				return err
 			}
