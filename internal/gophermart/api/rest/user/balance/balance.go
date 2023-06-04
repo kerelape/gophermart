@@ -5,6 +5,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/balance/withdraw"
+	"log"
 	"net/http"
 )
 
@@ -31,6 +32,7 @@ func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 
 	balance, balanceError := user.Balance(in.Context())
 	if balanceError != nil {
+		log.Printf("failed to get balance: %v", balanceError)
 		status := http.StatusInternalServerError
 		http.Error(out, http.StatusText(status), status)
 		return
@@ -43,6 +45,7 @@ func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 
 	responseBody, marshalResponseBodyError := json.Marshal(response)
 	if marshalResponseBodyError != nil {
+		log.Printf("failed to marshal balance: %v", marshalResponseBodyError)
 		status := http.StatusInternalServerError
 		http.Error(out, http.StatusText(status), status)
 		return
