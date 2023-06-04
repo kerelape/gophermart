@@ -7,8 +7,12 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/kerelape/gophermart/internal/accrual"
+	"github.com/pior/runnable"
 	"golang.org/x/crypto/bcrypt"
+	"golang.org/x/sync/errgroup"
+	"strings"
 	"sync"
+	"time"
 )
 
 type PostgresIdentityDatabase struct {
@@ -59,6 +63,13 @@ func (p *PostgresIdentityDatabase) Identity(username string) Identity {
 }
 
 func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
+	manager := runnable.NewManager()
+	manager.Add(runnable.Func(p.connect))
+	manager.Add(runnable.Every(runnable.Func(p.update), time.Second))
+	return manager.Build().Run(ctx)
+}
+
+func (p *PostgresIdentityDatabase) connect(ctx context.Context) error {
 	if p.conn != nil {
 		return errors.New("connection is already initialized")
 	}
@@ -119,4 +130,61 @@ func (p *PostgresIdentityDatabase) Run(ctx context.Context) error {
 	p.ready.Done()
 	<-ctx.Done()
 	return p.conn.Close(context.Background())
+}
+
+func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
+	p.ready.Wait()
+	rows, queryOrdersError := p.conn.Query(
+		ctx,
+		`SELECT id FROM orders WHERE status IN ($1)`,
+		strings.Join([]string{string(OrderStatusNew), string(OrderStatusProcessing)}, ","),
+	)
+	if queryOrdersError != nil {
+		return queryOrdersError
+	}
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+
+	eg, egctx := errgroup.WithContext(ctx)
+	eg.SetLimit(len(ids))
+	for _, id := range ids {
+		eg.Go(func(ctx context.Context, id string) func() error {
+			return func() error {
+				orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
+				if orderInfoError != nil {
+					return orderInfoError
+				}
+
+				_, err := p.conn.Exec(
+					ctx,
+					`UPDATE orders SET status = $2, accrual = $3 WHERE id = $1`,
+					orderInfo.Order,
+					string(MakeOrderStatus(orderInfo.Status)),
+					orderInfo.Accrual,
+				)
+				return err
+			}
+		}(egctx, id))
+	}
+
+	if err := eg.Wait(); err != nil {
+		tooManyRequestsError := new(accrual.TooManyRequestsError)
+		if errors.As(err, &tooManyRequestsError) {
+			time.Sleep(tooManyRequestsError.RetryAfter)
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }

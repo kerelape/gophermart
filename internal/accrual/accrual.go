@@ -6,12 +6,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 )
 
-var (
-	ErrUnknownOrder    = errors.New("unknown order")
-	ErrTooManyRequests = errors.New("too many requests")
-)
+var ErrUnknownOrder = errors.New("unknown order")
 
 type Accrual struct {
 	Address string
@@ -40,7 +39,11 @@ func (a Accrual) OrderInfo(ctx context.Context, order string) (OrderInfo, error)
 	if in.StatusCode != http.StatusOK {
 		switch in.StatusCode {
 		case http.StatusTooManyRequests:
-			return OrderInfo{}, ErrTooManyRequests
+			retryAfter, err := strconv.Atoi(in.Header.Get("Retry-After"))
+			if err != nil {
+				return OrderInfo{}, err
+			}
+			return OrderInfo{}, TooManyRequestsError{time.Second * time.Duration(retryAfter)}
 		case http.StatusNoContent:
 			return OrderInfo{}, ErrUnknownOrder
 		default:
