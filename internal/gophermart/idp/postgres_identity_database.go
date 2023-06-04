@@ -161,10 +161,6 @@ func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
 		eg.Go(func(ctx context.Context, id string) func() error {
 			return func() error {
 				orderInfo, orderInfoError := p.accrual.OrderInfo(ctx, id)
-				if orderInfoError != nil {
-					return orderInfoError
-				}
-
 				var status OrderStatus
 				if orderInfoError != nil {
 					if errors.Is(orderInfoError, accrual.ErrUnknownOrder) {
