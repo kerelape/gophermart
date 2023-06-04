@@ -54,5 +54,6 @@ func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 		return
 	}
 
+	out.Header().Set("Content-Type", "application/json")
 	out.WriteHeader(http.StatusOK)
 }
