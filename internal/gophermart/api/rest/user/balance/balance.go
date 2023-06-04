@@ -26,11 +26,9 @@ func New(identityProvider idp.IdentityProvider) Balance {
 
 func (b Balance) Route() http.Handler {
 	router := chi.NewRouter()
-	router.Group(func(router chi.Router) {
-		router.Use(authorization.Authorization(b.IdentityProvider))
-		router.Get("/", b.ServeHTTP)
-	})
 	router.Mount("/withdraw", b.withdraw.Route())
+	router.Use(authorization.Authorization(b.IdentityProvider))
+	router.Get("/", b.ServeHTTP)
 	return router
 }
 
