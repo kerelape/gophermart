@@ -4,25 +4,20 @@ import (
 	"encoding/json"
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
-	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
 	"time"
 )
 
 type Withdrawals struct {
-	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Withdrawals.
-func New(identityProvider idp.IdentityProvider) Withdrawals {
-	return Withdrawals{
-		IdentityProvider: identityProvider,
-	}
+func New() Withdrawals {
+	return Withdrawals{}
 }
 
 func (w Withdrawals) Route() http.Handler {
 	router := chi.NewRouter()
-	router.Use(authorization.Authorization(w.IdentityProvider))
 	router.Get("/", w.ServeHTTP)
 	return router
 }

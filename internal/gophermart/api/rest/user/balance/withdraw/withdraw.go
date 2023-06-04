@@ -10,19 +10,15 @@ import (
 )
 
 type Withdraw struct {
-	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Withdraw.
-func New(identityProvider idp.IdentityProvider) Withdraw {
-	return Withdraw{
-		IdentityProvider: identityProvider,
-	}
+func New() Withdraw {
+	return Withdraw{}
 }
 
 func (w Withdraw) Route() http.Handler {
 	router := chi.NewRouter()
-	router.Use(authorization.Authorization(w.IdentityProvider))
 	router.Post("/", w.ServeHTTP)
 	return router
 }

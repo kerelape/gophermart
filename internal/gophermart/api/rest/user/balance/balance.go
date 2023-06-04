@@ -5,30 +5,23 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/balance/withdraw"
-	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
 )
 
 type Balance struct {
 	withdraw withdraw.Withdraw
-
-	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Balance.
-func New(identityProvider idp.IdentityProvider) Balance {
+func New() Balance {
 	return Balance{
-		withdraw: withdraw.New(identityProvider),
-
-		IdentityProvider: identityProvider,
+		withdraw: withdraw.New(),
 	}
 }
 
 func (b Balance) Route() http.Handler {
 	router := chi.NewRouter()
 	router.Mount("/withdraw", b.withdraw.Route())
-	router.Use(authorization.Authorization(b.IdentityProvider))
-	router.Get("/", b.ServeHTTP)
 	return router
 }
 

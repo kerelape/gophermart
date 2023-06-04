@@ -13,19 +13,15 @@ import (
 )
 
 type Orders struct {
-	IdentityProvider idp.IdentityProvider
 }
 
 // New creates a new Orders.
-func New(identityProvider idp.IdentityProvider) Orders {
-	return Orders{
-		IdentityProvider: identityProvider,
-	}
+func New() Orders {
+	return Orders{}
 }
 
 func (o Orders) Route() http.Handler {
 	router := chi.NewRouter()
-	router.Use(authorization.Authorization(o.IdentityProvider))
 	router.Post("/", o.upload)
 	router.Get("/", o.list)
 	return router
