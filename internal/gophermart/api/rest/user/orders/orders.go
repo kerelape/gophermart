@@ -108,8 +108,19 @@ func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 		}
 		response = append(response, order)
 	}
-	out.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(out).Encode(response); err != nil {
-		panic(err)
+
+	responseBody, marshalResponseBodyError := json.Marshal(response)
+	if marshalResponseBodyError != nil {
+		status := http.StatusInternalServerError
+		http.Error(out, http.StatusText(status), status)
+		return
 	}
+
+	if _, err := out.Write(responseBody); err != nil {
+		status := http.StatusInternalServerError
+		http.Error(out, http.StatusText(status), status)
+		return
+	}
+
+	out.WriteHeader(http.StatusOK)
 }
