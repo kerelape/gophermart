@@ -118,6 +118,18 @@ func (p PostgresIdentity) Balance(ctx context.Context) (Balance, error) {
 }
 
 func (p PostgresIdentity) Withdraw(ctx context.Context, order string, amount float64) error {
+checkLock:
+	lock := p.conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, 1)
+	var locked bool
+	if err := lock.Scan(&locked); err != nil {
+		return err
+	}
+	if !locked {
+		time.Sleep(time.Second)
+		goto checkLock
+	}
+	defer p.conn.Exec(ctx, `SELECT pg_advisory_unlock($1)`, 1)
+
 	balance, balanceError := p.Balance(ctx)
 	if balanceError != nil {
 		return balanceError
