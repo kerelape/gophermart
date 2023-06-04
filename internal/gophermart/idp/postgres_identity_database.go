@@ -10,7 +10,6 @@ import (
 	"github.com/pior/runnable"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
-	"log"
 	"sync"
 	"time"
 )
@@ -146,17 +145,14 @@ func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
 	ids := make([]string, 0)
 	for rows.Next() {
 		if err := rows.Err(); err != nil {
-			log.Print(err.Error())
 			return err
 		}
 		var id string
 		if err := rows.Scan(&id); err != nil {
-			log.Print(err.Error())
 			return err
 		}
 		ids = append(ids, id)
 	}
-	log.Printf("(UPDATE) orders: %v", ids)
 
 	eg, egctx := errgroup.WithContext(ctx)
 	eg.SetLimit(len(ids))
@@ -174,8 +170,6 @@ func (p *PostgresIdentityDatabase) update(ctx context.Context) error {
 				} else {
 					status = MakeOrderStatus(orderInfo.Status)
 				}
-
-				log.Printf("(UPDATE) order: %s, %s, %f", orderInfo.Order, orderInfo.Status, orderInfo.Accrual)
 
 				_, err := p.conn.Exec(
 					ctx,
