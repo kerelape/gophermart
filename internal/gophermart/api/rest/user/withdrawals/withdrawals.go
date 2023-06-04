@@ -2,8 +2,8 @@ package withdrawals
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
 	"time"
@@ -22,6 +22,7 @@ func New(identityProvider idp.IdentityProvider) Withdrawals {
 
 func (w Withdrawals) Route() http.Handler {
 	router := chi.NewRouter()
+	router.Use(authorization.Authorization(w.IdentityProvider))
 	router.Get("/", w.ServeHTTP)
 	return router
 }
@@ -29,16 +30,7 @@ func (w Withdrawals) Route() http.Handler {
 func (w Withdrawals) ServeHTTP(out http.ResponseWriter, in *http.Request) {
 	out.Header().Set("Content-Type", "application/json")
 
-	token := in.Header.Get("Authorization")
-	user, userError := w.IdentityProvider.User(in.Context(), idp.Token(token))
-	if userError != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(userError, idp.ErrBadCredentials) {
-			status = http.StatusUnauthorized
-		}
-		http.Error(out, http.StatusText(status), status)
-		return
-	}
+	user := authorization.User(in)
 
 	withdrawals, withdrawalsError := user.Withdrawals(in.Context())
 	if withdrawalsError != nil {

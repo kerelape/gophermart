@@ -2,8 +2,8 @@ package balance
 
 import (
 	"encoding/json"
-	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/api/rest/user/balance/withdraw"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
@@ -26,24 +26,16 @@ func New(identityProvider idp.IdentityProvider) Balance {
 
 func (b Balance) Route() http.Handler {
 	router := chi.NewRouter()
-	router.Get("/", b.ServeHTTP)
+	router.Group(func(router chi.Router) {
+		router.Use(authorization.Authorization(b.IdentityProvider))
+		router.Get("/", b.ServeHTTP)
+	})
 	router.Mount("/withdraw", b.withdraw.Route())
 	return router
 }
 
 func (b Balance) ServeHTTP(out http.ResponseWriter, in *http.Request) {
-	out.Header().Set("Content-Type", "application/json")
-
-	token := in.Header.Get("Authorization")
-	user, userError := b.IdentityProvider.User(in.Context(), idp.Token(token))
-	if userError != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(userError, idp.ErrBadCredentials) {
-			status = http.StatusUnauthorized
-		}
-		http.Error(out, http.StatusText(status), status)
-		return
-	}
+	user := authorization.User(in)
 
 	balance, balanceError := user.Balance(in.Context())
 	if balanceError != nil {

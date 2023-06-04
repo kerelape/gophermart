@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"io"
 	"log"
@@ -24,23 +25,14 @@ func New(identityProvider idp.IdentityProvider) Orders {
 
 func (o Orders) Route() http.Handler {
 	router := chi.NewRouter()
+	router.Use(authorization.Authorization(o.IdentityProvider))
 	router.Post("/", o.upload)
 	router.Get("/", o.list)
 	return router
 }
 
 func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
-	token := in.Header.Get("Authorization")
-	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
-	if userError != nil {
-		log.Printf("failed to get user: %v", userError)
-		status := http.StatusInternalServerError
-		if errors.Is(userError, idp.ErrBadCredentials) {
-			status = http.StatusUnauthorized
-		}
-		http.Error(out, http.StatusText(status), status)
-		return
-	}
+	user := authorization.User(in)
 
 	order, readOrderError := io.ReadAll(in.Body)
 	if readOrderError != nil {
@@ -72,16 +64,7 @@ func (o Orders) upload(out http.ResponseWriter, in *http.Request) {
 func (o Orders) list(out http.ResponseWriter, in *http.Request) {
 	out.Header().Set("Content-Type", "application/json")
 
-	token := in.Header.Get("Authorization")
-	user, userError := o.IdentityProvider.User(in.Context(), idp.Token(token))
-	if userError != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(userError, idp.ErrBadCredentials) {
-			status = http.StatusUnauthorized
-		}
-		http.Error(out, http.StatusText(status), status)
-		return
-	}
+	user := authorization.User(in)
 
 	orders, ordersError := user.Orders(in.Context())
 	if ordersError != nil {

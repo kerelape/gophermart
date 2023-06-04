@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/go-chi/chi/v5"
+	"github.com/kerelape/gophermart/internal/gophermart/api/rest/authorization"
 	"github.com/kerelape/gophermart/internal/gophermart/idp"
 	"net/http"
 )
@@ -21,21 +22,13 @@ func New(identityProvider idp.IdentityProvider) Withdraw {
 
 func (w Withdraw) Route() http.Handler {
 	router := chi.NewRouter()
+	router.Use(authorization.Authorization(w.IdentityProvider))
 	router.Post("/", w.ServeHTTP)
 	return router
 }
 
 func (w Withdraw) ServeHTTP(out http.ResponseWriter, in *http.Request) {
-	token := in.Header.Get("Authorization")
-	user, userError := w.IdentityProvider.User(in.Context(), idp.Token(token))
-	if userError != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(userError, idp.ErrBadCredentials) {
-			status = http.StatusUnauthorized
-		}
-		http.Error(out, http.StatusText(status), status)
-		return
-	}
+	user := authorization.User(in)
 
 	var request struct {
 		Order string  `json:"order"`
