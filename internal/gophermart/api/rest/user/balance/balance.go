@@ -22,6 +22,7 @@ func New() Balance {
 func (b Balance) Route() http.Handler {
 	router := chi.NewRouter()
 	router.Mount("/withdraw", b.withdraw.Route())
+	router.Get("/", b.ServeHTTP)
 	return router
 }
 
